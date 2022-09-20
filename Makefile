@@ -7,10 +7,15 @@ SPLUNK_ANSIBLE_BRANCH ?= develop
 SPLUNK_COMPOSE ?= cluster_absolute_unit.yaml
 # Set Splunk version/build parameters here to define downstream URLs and file names
 SPLUNK_PRODUCT := splunk
-SPLUNK_VERSION := 9.0.0
-SPLUNK_BUILD := 6818ac46f2ec
-ifeq ($(shell arch), s390x)
+SPLUNK_VERSION := 9.0.1
+SPLUNK_BUILD := 82c987350fde
+
+ARCH ?= $(shell arch)
+
+ifeq ($(ARCH), s390x)
 	SPLUNK_ARCH = s390x
+else ifeq ($(shell arch), arm64)
+	SPLUNK_ARCH = armv8
 else
 	SPLUNK_ARCH = x86_64
 endif
@@ -61,7 +66,7 @@ ansible:
 base: base-debian-9 base-debian-10 base-centos-7 base-centos-8 base-redhat-8 base-windows-2016
 
 base-debian-10:
-	docker build ${DOCKER_BUILD_FLAGS} --build-arg SCLOUD_URL=${SCLOUD_URL} -t base-debian-10:${IMAGE_VERSION} ./base/debian-10
+	docker build ${DOCKER_BUILD_FLAGS} --platform=linux/$(ARCH) --build-arg SCLOUD_URL=${SCLOUD_URL} -t base-debian-10:${IMAGE_VERSION} ./base/debian-10
 
 base-debian-9:
 	docker build ${DOCKER_BUILD_FLAGS} --build-arg SCLOUD_URL=${SCLOUD_URL} -t base-debian-9:${IMAGE_VERSION} ./base/debian-9
@@ -86,21 +91,21 @@ minimal-debian-9: base-debian-9
 		-f splunk/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-debian-9 \
 		--build-arg SPLUNK_BUILD_URL=${SPLUNK_LINUX_BUILD_URL} \
-		--target minimal -t minimal-debian-9:${IMAGE_VERSION} .	
+		--target minimal -t minimal-debian-9:${IMAGE_VERSION} .
 
 minimal-debian-10: base-debian-10
 	docker build ${DOCKER_BUILD_FLAGS} \
 		-f splunk/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-debian-10 \
 		--build-arg SPLUNK_BUILD_URL=${SPLUNK_LINUX_BUILD_URL} \
-		--target minimal -t minimal-debian-10:${IMAGE_VERSION} .	
+		--target minimal -t minimal-debian-10:${IMAGE_VERSION} .
 
 minimal-centos-7: base-centos-7
 	docker build ${DOCKER_BUILD_FLAGS} \
 		-f splunk/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-centos-7 \
 		--build-arg SPLUNK_BUILD_URL=${SPLUNK_LINUX_BUILD_URL} \
-		--target minimal -t minimal-centos-7:${IMAGE_VERSION} .	
+		--target minimal -t minimal-centos-7:${IMAGE_VERSION} .
 
 minimal-centos-8: base-centos-8
 	docker build ${DOCKER_BUILD_FLAGS} \
@@ -124,14 +129,14 @@ bare-debian-9: base-debian-9
 		-f splunk/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-debian-9 \
 		--build-arg SPLUNK_BUILD_URL=${SPLUNK_LINUX_BUILD_URL} \
-		--target bare -t bare-debian-9:${IMAGE_VERSION} .	
+		--target bare -t bare-debian-9:${IMAGE_VERSION} .
 
 bare-debian-10: base-debian-10
 	docker build ${DOCKER_BUILD_FLAGS} \
 		-f splunk/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-debian-10 \
 		--build-arg SPLUNK_BUILD_URL=${SPLUNK_LINUX_BUILD_URL} \
-		--target bare -t bare-debian-10:${IMAGE_VERSION} .	
+		--target bare -t bare-debian-10:${IMAGE_VERSION} .
 
 bare-centos-7: base-centos-7
 	docker build ${DOCKER_BUILD_FLAGS} \
@@ -145,7 +150,7 @@ bare-centos-8: base-centos-8
 		-f splunk/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-centos-8 \
 		--build-arg SPLUNK_BUILD_URL=${SPLUNK_LINUX_BUILD_URL} \
-		--target bare -t bare-centos-8:${IMAGE_VERSION} .	
+		--target bare -t bare-centos-8:${IMAGE_VERSION} .
 
 bare-redhat-8: base-redhat-8
 	docker build ${DOCKER_BUILD_FLAGS} \
@@ -178,7 +183,7 @@ splunk-centos-7: base-centos-7 ansible
 		--build-arg SPLUNK_BUILD_URL=${SPLUNK_LINUX_BUILD_URL} \
 		-t splunk-centos-7:${IMAGE_VERSION} .
 
-splunk-centos-8: base-centos-8 ansible 
+splunk-centos-8: base-centos-8 ansible
 	docker build ${DOCKER_BUILD_FLAGS} \
 		-f splunk/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-centos-8 \
@@ -228,6 +233,7 @@ uf-debian-10: base-debian-10 ansible
 		-f uf/common-files/Dockerfile \
 		--build-arg SPLUNK_BASE_IMAGE=base-debian-10 \
 		--build-arg SPLUNK_BUILD_URL=${UF_LINUX_BUILD_URL} \
+		--platform=linux/$(ARCH) \
 		-t uf-debian-10:${IMAGE_VERSION} .
 
 uf-centos-7: base-centos-7 ansible
@@ -327,7 +333,7 @@ uf-py23-redhat-8: uf-redhat-8
 
 ##### Tests #####
 sample-compose-up: sample-compose-down
-	docker-compose -f test_scenarios/${SPLUNK_COMPOSE} up -d 
+	docker-compose -f test_scenarios/${SPLUNK_COMPOSE} up -d
 
 sample-compose-down:
 	docker-compose -f test_scenarios/${SPLUNK_COMPOSE} down --volumes --remove-orphans || true
